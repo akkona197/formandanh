@@ -835,6 +835,8 @@ body{
 const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/shopeemobile-external.com/s/AKfycbwBSyVVfbQE1x5ff4DWlMTdISttsRwZjJ9oejHJKQ87dbjYid-zX4I-XA10xLDvKW7xCw/exec';
 const MNG_CONTACT = 'MNG QA';
 const SEND_TIMEOUT_MS = 30000;
+// Lấy key miễn phí tại https://api.imgbb.com (đăng ký → API → tạo key)
+const IMGBB_API_KEY = '';
 
 // ─── STATE ────────────────────────────────────────────────
 let currentMode = 'bot';
@@ -961,11 +963,58 @@ async function fileToBase64(file) {
   });
 }
 
+// Upload ảnh lên imgbb, trả về URL hoặc null nếu thất bại
+async function uploadToImgbb(file) {
+  if (!IMGBB_API_KEY) return null;
+  try {
+    const b64 = await fileToBase64(file);
+    const form = new FormData();
+    form.append('key', IMGBB_API_KEY);
+    form.append('image', b64);
+    form.append('name', file.name.replace(/\.[^.]+$/, ''));
+    const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: form });
+    const json = await res.json();
+    if (json.success) return json.data.url;
+  } catch(e) {}
+  return null;
+}
+
+// Thêm chip trạng thái "đang tải" tạm thời
+function addUploadingChip(previewId, name) {
+  const el = document.getElementById(previewId);
+  const chip = document.createElement('div');
+  chip.className = 'file-chip';
+  chip.dataset.uploading = name;
+  chip.innerHTML = '⏳ <span>Đang tải: ' + (name.length > 22 ? name.slice(0,22)+'…' : name) + '</span>';
+  el.appendChild(chip);
+  return chip;
+}
+
+async function processImageUpload(file, filesArr, linksArr, previewId) {
+  if (file.size > 5 * 1024 * 1024) {
+    alert('File "' + file.name + '" hơi nặng (trên 5MB) — bạn nén lại hoặc dùng link Drive thay thế nhé.');
+    return;
+  }
+  if (file.type.startsWith('image/') && IMGBB_API_KEY) {
+    const chip = addUploadingChip(previewId, file.name);
+    const url = await uploadToImgbb(file);
+    chip.remove();
+    if (url) {
+      linksArr.push(url);
+    } else {
+      // fallback: lưu base64 để gửi qua Apps Script nếu có
+      const b64 = await fileToBase64(file);
+      filesArr.push({ name: file.name, base64: b64, type: file.type });
+    }
+  } else {
+    const b64 = await fileToBase64(file);
+    filesArr.push({ name: file.name, base64: b64, type: file.type });
+  }
+}
+
 async function handleFileSelect(e) {
   for (const file of Array.from(e.target.files)) {
-    if (file.size > 5 * 1024 * 1024) { alert('File "' + file.name + '" hơi nặng (trên 5MB) — bạn nén lại hoặc dùng link Drive thay thế nhé.'); continue; }
-    const b64 = await fileToBase64(file);
-    botFiles.push({ name: file.name, base64: b64, type: file.type });
+    await processImageUpload(file, botFiles, botLinks, 'file-preview-bot');
   }
   renderPreview('file-preview-bot', botFiles, botLinks, 'bot');
   e.target.value = '';
@@ -973,9 +1022,7 @@ async function handleFileSelect(e) {
 
 async function handleManualFileSelect(e) {
   for (const file of Array.from(e.target.files)) {
-    if (file.size > 5 * 1024 * 1024) { alert('File "' + file.name + '" hơi nặng (trên 5MB) — bạn nén lại hoặc dùng link Drive thay thế nhé.'); continue; }
-    const b64 = await fileToBase64(file);
-    manualFiles.push({ name: file.name, base64: b64, type: file.type });
+    await processImageUpload(file, manualFiles, manualLinks, 'file-preview-manual');
   }
   renderPreview('file-preview-manual', manualFiles, manualLinks, 'manual');
   e.target.value = '';
@@ -1028,14 +1075,14 @@ document.addEventListener('paste', async (e) => {
   const items = e.clipboardData?.items || [];
   for (const item of items) {
     if (item.type.startsWith('image/')) {
-      const file = item.getAsFile();
-      const b64 = await fileToBase64(file);
+      const rawFile = item.getAsFile();
       const name = 'screenshot_' + Date.now() + '.png';
+      const file = new File([rawFile], name, { type: 'image/png' });
       if (currentMode === 'bot') {
-        botFiles.push({ name, base64: b64, type: 'image/png' });
+        await processImageUpload(file, botFiles, botLinks, 'file-preview-bot');
         renderPreview('file-preview-bot', botFiles, botLinks, 'bot');
       } else {
-        manualFiles.push({ name, base64: b64, type: 'image/png' });
+        await processImageUpload(file, manualFiles, manualLinks, 'file-preview-manual');
         renderPreview('file-preview-manual', manualFiles, manualLinks, 'manual');
       }
     }
