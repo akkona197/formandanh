@@ -1565,7 +1565,7 @@ function positionSpotlight(targetId) {
   if (!r) return;
 
   // position cutout
-  cut.style.top    = (r.top - PAD + window.scrollY) + 'px';
+  cut.style.top    = (r.top - PAD) + 'px';
   cut.style.left   = (r.left - PAD) + 'px';
   cut.style.width  = (r.width + PAD*2) + 'px';
   cut.style.height = (r.height + PAD*2) + 'px';
