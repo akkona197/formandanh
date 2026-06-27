@@ -810,9 +810,10 @@ body{
       <label class="field-label">Chuyện gì đang xảy ra?</label>
       <select class="select-field" id="issue-type" onchange="handleTypeChange()">
         <option value="">— Chọn loại vấn đề —</option>
-        <option value="can_thiep">Có người nhờ mình chỉnh kết quả chấm</option>
-        <option value="hanh_vi_la">Thấy đồng nghiệp QA có hành vi lạ</option>
-        <option value="khac">Có chuyện quan trọng khác nữa</option>
+        <option value="hanh_vi">Hành vi</option>
+        <option value="ky_nang">Kỹ năng</option>
+        <option value="performance">Performance</option>
+        <option value="khac">Khác</option>
       </select>
       <div class="other-input" id="other-input">
         <input class="input-field" type="text" id="other-text" placeholder="Mô tả ngắn loại vấn đề...">
@@ -1349,9 +1350,10 @@ function submitManual() {
   if (type === 'khac' && !otherText && !desc) { setStatus('status-manual', 'Bạn mô tả qua loại vấn đề giúp mình nhé.', true); return; }
 
   const typeLabel = {
-    can_thiep: 'Có người nhờ chỉnh kết quả chấm',
-    hanh_vi_la: 'Thấy đồng nghiệp QA có hành vi lạ',
-    khac: otherText ? 'Khác: ' + otherText : 'Có chuyện quan trọng khác nữa'
+    hanh_vi: 'Hành vi',
+    ky_nang: 'Kỹ năng',
+    performance: 'Performance',
+    khac: otherText ? 'Khác: ' + otherText : 'Khác'
   }[type] || type;
 
   const { name, timestamp, isAnon } = getCommonFields();
