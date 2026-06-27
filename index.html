@@ -67,6 +67,47 @@ body{
   font-size:13px;color:var(--mid);line-height:1.5;
 }
 
+/* ─── TEAM PICKER ─── */
+.team-section{
+  padding:18px 28px 16px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+}
+.team-section-label{
+  font-size:12px;font-weight:700;color:var(--text);
+  text-transform:uppercase;letter-spacing:.09em;
+  margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.team-required-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--red);flex-shrink:0;
+}
+.team-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+}
+.team-btn{
+  border:2px solid var(--border);border-radius:12px;
+  padding:10px 6px;cursor:pointer;text-align:center;
+  background:#fff;font-family:'Be Vietnam Pro',sans-serif;
+  transition:border-color .18s,background .18s,color .18s;
+  user-select:none;
+}
+.team-btn:hover{border-color:var(--purple);background:var(--purple-mid);}
+.team-btn.selected{
+  border-color:var(--purple);background:var(--purple-light);
+}
+.team-btn-icon{font-size:20px;margin-bottom:4px;}
+.team-btn-name{
+  font-size:12px;font-weight:700;color:var(--text);
+  transition:color .18s;
+}
+.team-btn.selected .team-btn-name{color:var(--purple);}
+.team-error-msg{
+  font-size:11px;color:var(--red);margin-top:8px;
+  display:none;
+}
+.team-error-msg.show{display:block;}
+
 /* ─── ANONYMOUS TOGGLE ─── */
 .anon-row{
   display:flex;align-items:center;justify-content:space-between;
@@ -659,6 +700,33 @@ body{
     <div class="header-sub">Chỉ MNG QA mới đọc được — bảo mật hoàn toàn. Thấy mà không nói mới là có vấn đề đó.</div>
   </div>
 
+  <!-- TEAM PICKER -->
+  <div class="team-section" id="team-section">
+    <div class="team-section-label">
+      <span class="team-required-dot"></span>
+      Bạn thuộc team nào?
+    </div>
+    <div class="team-grid">
+      <div class="team-btn" id="team-Chat" onclick="selectTeam('Chat')">
+        <div class="team-btn-icon">💬</div>
+        <div class="team-btn-name">Chat</div>
+      </div>
+      <div class="team-btn" id="team-Call" onclick="selectTeam('Call')">
+        <div class="team-btn-icon">📞</div>
+        <div class="team-btn-name">Call</div>
+      </div>
+      <div class="team-btn" id="team-Multi" onclick="selectTeam('Multi')">
+        <div class="team-btn-icon">🔀</div>
+        <div class="team-btn-name">Multi</div>
+      </div>
+      <div class="team-btn" id="team-Secret" onclick="selectTeam('Secret')">
+        <div class="team-btn-icon">🔒</div>
+        <div class="team-btn-name">Bí mật</div>
+      </div>
+    </div>
+    <div class="team-error-msg" id="team-error">Vui lòng chọn team của bạn trước khi tiếp tục.</div>
+  </div>
+
   <!-- ANONYMOUS TOGGLE -->
   <div class="anon-row" id="anon-row">
     <div>
@@ -839,6 +907,7 @@ const SEND_TIMEOUT_MS = 30000;
 const IMGBB_API_KEY = '6f397cc54fe6d8e01f8e67a6d52b3515';
 
 // ─── STATE ────────────────────────────────────────────────
+let currentTeam = '';
 let currentMode = 'bot';
 let botFiles = [];
 let botLinks = [];
@@ -847,6 +916,25 @@ let manualLinks = [];
 let recognition = null;
 let isRecording = false;
 let pendingPayload = null;
+
+// ─── TEAM SELECTOR ────────────────────────────────────────
+function selectTeam(team) {
+  currentTeam = team;
+  ['Chat','Call','Multi','Secret'].forEach(t => {
+    document.getElementById('team-' + t).classList.toggle('selected', t === team);
+  });
+  document.getElementById('team-error').classList.remove('show');
+}
+
+function validateTeam() {
+  if (!currentTeam) {
+    const errEl = document.getElementById('team-error');
+    errEl.classList.add('show');
+    document.getElementById('team-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return false;
+  }
+  return true;
+}
 
 // ─── ANONYMOUS TOGGLE ─────────────────────────────────────
 document.getElementById('anon-toggle').addEventListener('change', function() {
@@ -1176,7 +1264,10 @@ function openReview(payload, structured) {
     ? '<span class="rv-badge rv-badge-purple">Kể tự nhiên</span>'
     : '<span class="rv-badge rv-badge-green">Điền từng bước</span>';
 
+  const teamLabel = { Chat:'💬 Chat', Call:'📞 Call', Multi:'🔀 Multi', Secret:'🔒 Bí mật' }[payload.team] || payload.team;
+
   let html = badge;
+  html += '<div class="rv-section"><div class="rv-label">Team</div><div class="rv-readonly">' + esc(teamLabel) + '</div></div>';
   html += fieldInput('issueType', 'Loại vấn đề', structured.issueType);
   html += fieldInput('who', 'Người liên quan phát hiện được', structured.who);
   html += fieldInput('when', 'Thời điểm', structured.when);
@@ -1228,6 +1319,7 @@ async function confirmSend() {
 
 // ─── SUBMIT FLOW ──────────────────────────────────────────
 function submitBot() {
+  if (!validateTeam()) return;
   const content = document.getElementById('bot-text').value.trim();
   if (!content) { setStatus('status-bot', 'Bạn chưa kể gì cho mình nghe — gõ vài dòng là được.', true); return; }
 
@@ -1236,6 +1328,7 @@ function submitBot() {
 
   const payload = {
     mode: 'bot', name, timestamp, isAnon,
+    team: currentTeam,
     issueType: structured.issueType,
     content,
     links: botLinks,
@@ -1246,6 +1339,7 @@ function submitBot() {
 }
 
 function submitManual() {
+  if (!validateTeam()) return;
   const type = document.getElementById('issue-type').value;
   const desc = document.getElementById('manual-desc').value.trim();
   const otherText = document.getElementById('other-text').value.trim();
@@ -1265,6 +1359,7 @@ function submitManual() {
 
   const payload = {
     mode: 'manual', name, timestamp, isAnon,
+    team: currentTeam,
     issueType: typeLabel,
     content: desc,
     links: manualLinks,
@@ -1284,6 +1379,7 @@ function buildData(payload) {
     timestamp : payload.timestamp || '',
     name      : payload.name      || '',
     isAnon    : !!payload.isAnon,
+    team      : payload.team      || '',
     mode      : payload.mode      || '',
     issueType : payload.issueType || '',
     who       : payload.who       || '',
@@ -1335,6 +1431,7 @@ function jsonpSubmit(payload, resolve) {
     timestamp : d.timestamp,
     name      : d.name,
     isAnon    : d.isAnon ? 'true' : 'false',
+    team      : d.team,
     mode      : d.mode,
     issueType : d.issueType,
     who       : d.who,
@@ -1463,6 +1560,11 @@ function resetForm() {
   botFiles = []; botLinks = []; manualFiles = []; manualLinks = [];
   ['file-preview-bot','file-preview-manual'].forEach(id => { document.getElementById(id).innerHTML = ''; });
   pendingPayload = null;
+  currentTeam = '';
+  ['Chat','Call','Multi','Secret'].forEach(t => {
+    document.getElementById('team-' + t).classList.remove('selected');
+  });
+  document.getElementById('team-error').classList.remove('show');
   selectMode('bot');
 }
 
